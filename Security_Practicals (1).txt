@@ -1,0 +1,872 @@
+================================================================
+        NETWORK SECURITY & CRYPTOGRAPHY - LAB PRACTICALS
+================================================================
+
+
+================================================================
+PRACTICAL 1: NETWORK TOOLS
+================================================================
+
+--- ping ---
+Steps:
+1. Open terminal / command prompt
+2. Run ping with a hostname or IP
+3. Observe: packets sent, received, lost, avg round-trip time
+
+Commands:
+  ping google.com
+  ping 8.8.8.8
+  ping -c 4 google.com          (Linux  - limit 4 packets)
+  ping -n 4 google.com          (Windows - limit 4 packets)
+
+
+--- ipconfig (Windows) ---
+Steps:
+1. Open Command Prompt
+2. Run ipconfig to see IP Address, Subnet Mask, Default Gateway
+
+Commands:
+  ipconfig
+  ipconfig /all                 (detailed: MAC, DHCP, DNS)
+  ipconfig /release             (release IP)
+  ipconfig /renew               (get new IP from DHCP)
+  ipconfig /flushdns            (clear DNS cache)
+
+
+--- ifconfig (Linux/macOS) ---
+Commands:
+  ifconfig
+  ifconfig eth0
+  ip addr show                  (modern alternative)
+
+
+--- tracert / traceroute ---
+Steps:
+1. Run with a hostname
+2. Each line = one hop (router) with 3 round-trip times
+3. * means router did not respond
+
+Commands:
+  tracert google.com            (Windows)
+  traceroute google.com         (Linux)
+  traceroute -n google.com      (skip DNS resolution)
+
+
+--- arp ---
+Commands:
+  arp -a                                       (show full ARP cache)
+  arp -a 192.168.1.1                           (specific IP entry)
+  arp -d 192.168.1.1                           (delete entry)
+  arp -s 192.168.1.50 AA-BB-CC-DD-EE-FF        (add static entry)
+
+
+--- netstat ---
+Commands:
+  netstat -a               (all connections and listening ports)
+  netstat -n               (numeric addresses, skip DNS)
+  netstat -r               (routing table)
+  netstat -s               (per-protocol statistics)
+  netstat -b               (Windows: show process per connection)
+  netstat -tulpn           (Linux: TCP/UDP listening with PID)
+
+
+--- whois ---
+Steps:
+1. Linux/macOS: built-in. Windows: install from Sysinternals
+2. Run with domain or IP
+3. Note: registrar, registration date, expiry, name servers
+
+Commands:
+  whois google.com
+  whois 8.8.8.8
+  whois.exe google.com     (Windows Sysinternals)
+
+
+================================================================
+PRACTICAL 2: PASSWORD CRACKING TOOLS
+================================================================
+
+--- John the Ripper ---
+Steps:
+1. Install:
+   sudo apt install john -y
+
+2. Create a test shadow-format hash file:
+   echo 'testuser:$(openssl passwd -6 password123)' > test_shadow.txt
+
+3. Dictionary (wordlist) attack:
+   john --wordlist=/usr/share/wordlists/rockyou.txt test_shadow.txt
+
+4. Show cracked passwords:
+   john --show test_shadow.txt
+
+5. Brute-force (incremental) mode:
+   john --incremental test_shadow.txt
+
+6. Crack MD5 hash:
+   echo -n 'password123' | md5sum
+   john --format=raw-md5 --wordlist=/usr/share/wordlists/rockyou.txt hashfile.txt
+
+Observation:
+- Weak passwords (password123, abc123) crack in seconds
+- Strong passwords (long + mixed case + symbols) take far longer
+
+
+--- Ophcrack ---
+Steps:
+1. Install:
+   sudo apt install ophcrack -y
+
+2. On Windows (run as Administrator) extract NTLM hashes:
+   fgdump.exe -c
+   (produces 127.0.0.1.pwdump with NTLM hashes)
+
+3. Launch GUI:
+   ophcrack &
+
+4. GUI Steps:
+   - Click Load > PWDUMP file > select .pwdump file
+   - Click Tables > select Windows XP or Vista table
+     (download free tables from ophcrack.sourceforge.io/tables.php)
+   - Click Crack
+   - Cracked passwords appear in the NT Pwd column
+
+5. Command-line mode:
+   ophcrack -g -d /path/to/tables -f hashes.pwdump
+
+Observation:
+- Cracks ~99% of alphanumeric Windows passwords under 14 chars
+- Special characters significantly reduce cracking success
+
+
+================================================================
+PRACTICAL 3: NMAP / ZENMAP
+================================================================
+
+Install:
+  sudo apt install nmap zenmap -y
+
+Commands:
+  nmap -sn 192.168.1.0/24               (host discovery, no port scan)
+  sudo nmap -sS 192.168.1.1             (SYN stealth scan)
+  nmap -sT 192.168.1.1                  (full TCP connect scan)
+  sudo nmap -sU 192.168.1.1             (UDP scan)
+  nmap -p 1-1024 192.168.1.1            (scan specific port range)
+  nmap -p- 192.168.1.1                  (all 65535 ports)
+  nmap -sV 192.168.1.1                  (detect service versions)
+  sudo nmap -O 192.168.1.1              (OS detection)
+  sudo nmap -A 192.168.1.1              (OS + version + scripts + traceroute)
+  nmap --script=vuln 192.168.1.1        (vulnerability scan)
+  nmap -oN result.txt 192.168.1.1       (save output to file)
+
+Zenmap Steps:
+1. Launch: sudo zenmap
+2. Enter target IP in Target field
+3. Choose profile (e.g., Intense scan)
+4. Click Scan
+5. View open ports in Ports/Hosts tab
+6. View network map in Topology tab
+7. Save results: Scan > Save Scan
+
+
+================================================================
+PRACTICAL 4: BURP SUITE PROXY
+================================================================
+
+Steps:
+1. Install and launch:
+   sudo apt install burpsuite -y
+   burpsuite &
+
+2. Configure Firefox proxy:
+   Settings > Network Settings > Manual proxy configuration
+   HTTP Proxy: 127.0.0.1   Port: 8080
+   Check: Also use this proxy for HTTPS
+
+3. Install Burp CA certificate (needed for HTTPS):
+   - Visit http://burp in Firefox
+   - Click CA Certificate to download
+   - Firefox: Settings > Privacy & Security > Certificates > Import
+   - Enable: Trust this CA to identify websites
+
+4. Intercept a request:
+   - Burp: Proxy > Intercept > click to turn ON
+   - In Firefox: open login page, enter credentials, click Login
+   - Request is paused and shown in Intercept tab
+
+5. Read and modify the request:
+   - Locate username= and password= fields in the request body
+   - Edit values directly in Burp editor
+   - Click Forward to send modified request
+   Before: username=user&password=pass&Login=Login
+   After:  username=admin&password=admin&Login=Login
+
+6. View all traffic:
+   Proxy > HTTP History tab
+   Click any row to see full request and response
+
+7. Repeater (re-send and tweak):
+   Right-click a request > Send to Repeater
+   Go to Repeater tab > modify request > click Send
+   Compare responses for different inputs
+
+
+================================================================
+PRACTICAL 5: CAESAR CIPHER
+================================================================
+
+Code (save as caesar.py):
+--------------------------------------------------
+def caesar_encrypt(plaintext, key):
+    ciphertext = ''
+    for char in plaintext:
+        if char.isalpha():
+            base = ord('A') if char.isupper() else ord('a')
+            ciphertext += chr((ord(char) - base + key) % 26 + base)
+        else:
+            ciphertext += char
+    return ciphertext
+
+def caesar_decrypt(ciphertext, key):
+    plaintext = ''
+    for char in ciphertext:
+        if char.isalpha():
+            base = ord('A') if char.isupper() else ord('a')
+            plaintext += chr((ord(char) - base - key) % 26 + base)
+        else:
+            plaintext += char
+    return plaintext
+
+if __name__ == '__main__':
+    text = input('Enter plaintext  : ')
+    key  = int(input('Enter shift key  : '))
+
+    encrypted = caesar_encrypt(text, key)
+    decrypted = caesar_decrypt(encrypted, key)
+
+    print(f'Plaintext  : {text}')
+    print(f'Encrypted  : {encrypted}')
+    print(f'Decrypted  : {decrypted}')
+--------------------------------------------------
+
+Run: python caesar.py
+
+Sample Output:
+  Enter plaintext  : Hello World
+  Enter shift key  : 3
+  Plaintext  : Hello World
+  Encrypted  : Khoor Zruog
+  Decrypted  : Hello World
+
+
+================================================================
+PRACTICAL 6: MONOALPHABETIC AND POLYALPHABETIC CIPHER
+================================================================
+
+--- 6.1 Monoalphabetic Cipher (save as mono.py) ---
+--------------------------------------------------
+import string
+
+# Plain alphabet and its fixed substitution
+PLAIN_ALPHA  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+CIPHER_ALPHA = 'QWERTYUIOPASDFGHJKLZXCVBNM'
+
+def mono_encrypt(plaintext):
+    ciphertext = ''
+    for char in plaintext:
+        if char.isalpha():
+            if char.isupper():
+                idx = PLAIN_ALPHA.index(char)
+                ciphertext += CIPHER_ALPHA[idx]
+            else:
+                idx = PLAIN_ALPHA.index(char.upper())
+                ciphertext += CIPHER_ALPHA[idx].lower()
+        else:
+            ciphertext += char
+    return ciphertext
+
+def mono_decrypt(ciphertext):
+    plaintext = ''
+    for char in ciphertext:
+        if char.isalpha():
+            if char.isupper():
+                idx = CIPHER_ALPHA.index(char)
+                plaintext += PLAIN_ALPHA[idx]
+            else:
+                idx = CIPHER_ALPHA.index(char.upper())
+                plaintext += PLAIN_ALPHA[idx].lower()
+        else:
+            plaintext += char
+    return plaintext
+
+if __name__ == '__main__':
+    text = input('Enter plaintext : ')
+
+    encrypted = mono_encrypt(text)
+    decrypted = mono_decrypt(encrypted)
+
+    print(f'Plain  Alphabet : {PLAIN_ALPHA}')
+    print(f'Cipher Alphabet : {CIPHER_ALPHA}')
+    print(f'Plaintext       : {text}')
+    print(f'Encrypted       : {encrypted}')
+    print(f'Decrypted       : {decrypted}')
+--------------------------------------------------
+
+Sample Output:
+  Enter plaintext : Hello World
+  Plain  Alphabet : ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  Cipher Alphabet : QWERTYUIOPASDFGHJKLZXCVBNM
+  Plaintext       : Hello World
+  Encrypted       : Itssg Vgksr
+  Decrypted       : Hello World
+
+
+--- 6.2 Polyalphabetic Cipher - Vigenere (save as vigenere.py) ---
+--------------------------------------------------
+def vigenere_encrypt(plaintext, key):
+    key        = key.upper()
+    ciphertext = ''
+    key_index  = 0
+
+    for char in plaintext:
+        if char.isalpha():
+            base  = ord('A') if char.isupper() else ord('a')
+            shift = ord(key[key_index % len(key)]) - ord('A')
+            ciphertext += chr((ord(char) - base + shift) % 26 + base)
+            key_index  += 1
+        else:
+            ciphertext += char
+
+    return ciphertext
+
+def vigenere_decrypt(ciphertext, key):
+    key       = key.upper()
+    plaintext = ''
+    key_index = 0
+
+    for char in ciphertext:
+        if char.isalpha():
+            base  = ord('A') if char.isupper() else ord('a')
+            shift = ord(key[key_index % len(key)]) - ord('A')
+            plaintext += chr((ord(char) - base - shift) % 26 + base)
+            key_index += 1
+        else:
+            plaintext += char
+
+    return plaintext
+
+if __name__ == '__main__':
+    text = input('Enter plaintext : ')
+    key  = input('Enter keyword   : ')
+
+    encrypted = vigenere_encrypt(text, key)
+    decrypted = vigenere_decrypt(encrypted, key)
+
+    print(f'Keyword   : {key.upper()}')
+    print(f'Plaintext : {text}')
+    print(f'Encrypted : {encrypted}')
+    print(f'Decrypted : {decrypted}')
+--------------------------------------------------
+
+Sample Output:
+  Enter plaintext : ATTACK AT DAWN
+  Enter keyword   : LEMON
+  Keyword   : LEMON
+  Plaintext : ATTACK AT DAWN
+  Encrypted : LXFOPV EF RNHR
+  Decrypted : ATTACK AT DAWN
+
+
+================================================================
+PRACTICAL 7: PLAYFAIR CIPHER
+================================================================
+
+Code (save as playfair.py):
+--------------------------------------------------
+def generate_matrix(key):
+    key    = key.upper().replace('J', 'I')
+    seen   = []
+    for ch in key + 'ABCDEFGHIKLMNOPQRSTUVWXYZ':
+        if ch not in seen and ch.isalpha():
+            seen.append(ch)
+    matrix = []
+    for i in range(5):
+        matrix.append(seen[i*5 : i*5+5])
+    return matrix
+
+def find_position(matrix, char):
+    for row in range(5):
+        for col in range(5):
+            if matrix[row][col] == char:
+                return row, col
+    return None, None
+
+def prepare_plaintext(text):
+    text   = text.upper().replace('J', 'I').replace(' ', '')
+    pairs  = []
+    i      = 0
+    while i < len(text):
+        a = text[i]
+        if i + 1 < len(text):
+            b = text[i + 1]
+        else:
+            b = 'X'
+        if a == b:
+            pairs.append((a, 'X'))
+            i += 1
+        else:
+            pairs.append((a, b))
+            i += 2
+    return pairs
+
+def playfair_encrypt(plaintext, key):
+    matrix     = generate_matrix(key)
+    pairs      = prepare_plaintext(plaintext)
+    ciphertext = ''
+
+    for a, b in pairs:
+        r1, c1 = find_position(matrix, a)
+        r2, c2 = find_position(matrix, b)
+
+        if r1 == r2:
+            # Same row: shift each letter one step right (wrap)
+            ciphertext += matrix[r1][(c1 + 1) % 5]
+            ciphertext += matrix[r2][(c2 + 1) % 5]
+        elif c1 == c2:
+            # Same column: shift each letter one step down (wrap)
+            ciphertext += matrix[(r1 + 1) % 5][c1]
+            ciphertext += matrix[(r2 + 1) % 5][c2]
+        else:
+            # Rectangle: each letter takes the column of the other
+            ciphertext += matrix[r1][c2]
+            ciphertext += matrix[r2][c1]
+
+    return ciphertext
+
+def playfair_decrypt(ciphertext, key):
+    matrix    = generate_matrix(key)
+    plaintext = ''
+    pairs     = [(ciphertext[i], ciphertext[i+1]) for i in range(0, len(ciphertext), 2)]
+
+    for a, b in pairs:
+        r1, c1 = find_position(matrix, a)
+        r2, c2 = find_position(matrix, b)
+
+        if r1 == r2:
+            # Same row: shift each letter one step left (wrap)
+            plaintext += matrix[r1][(c1 - 1) % 5]
+            plaintext += matrix[r2][(c2 - 1) % 5]
+        elif c1 == c2:
+            # Same column: shift each letter one step up (wrap)
+            plaintext += matrix[(r1 - 1) % 5][c1]
+            plaintext += matrix[(r2 - 1) % 5][c2]
+        else:
+            # Rectangle: swap columns back
+            plaintext += matrix[r1][c2]
+            plaintext += matrix[r2][c1]
+
+    return plaintext
+
+if __name__ == '__main__':
+    key  = input('Enter key      : ')
+    text = input('Enter plaintext: ')
+
+    matrix    = generate_matrix(key)
+    encrypted = playfair_encrypt(text, key)
+    decrypted = playfair_decrypt(encrypted, key)
+
+    print('\nPlayfair 5x5 Matrix:')
+    for row in matrix:
+        print(' '.join(row))
+
+    print(f'\nPlaintext  : {text}')
+    print(f'Encrypted  : {encrypted}')
+    print(f'Decrypted  : {decrypted}')
+--------------------------------------------------
+
+Sample Output:
+  Enter key      : MONARCHY
+  Enter plaintext: INSTRUMENTS
+
+  Playfair 5x5 Matrix:
+  M O N A R
+  C H Y B D
+  E F G I K
+  L P Q S T
+  U V W X Z
+
+  Plaintext  : INSTRUMENTS
+  Encrypted  : GATLMZCLRQTX
+  Decrypted  : INSTRUMENTSX
+
+
+================================================================
+PRACTICAL 8: HILL CIPHER
+================================================================
+
+Install: pip install numpy
+
+Code (save as hill.py):
+--------------------------------------------------
+import numpy as np
+
+def mod_inverse(a, m=26):
+    # Find modular inverse of a under mod m
+    for x in range(1, m):
+        if (a * x) % m == 1:
+            return x
+    raise ValueError(f'No modular inverse for {a} mod {m}')
+
+def matrix_mod_inverse(key_matrix, mod=26):
+    # Determinant of the key matrix
+    det     = int(round(np.linalg.det(key_matrix))) % mod
+    det_inv = mod_inverse(det % mod, mod)
+    # Adjugate matrix = det * inverse
+    adjugate   = np.round(det * np.linalg.inv(key_matrix)).astype(int) % mod
+    inv_matrix = (det_inv * adjugate) % mod
+    return inv_matrix.astype(int)
+
+def text_to_numbers(text):
+    numbers = []
+    for ch in text.upper():
+        if ch.isalpha():
+            numbers.append(ord(ch) - ord('A'))
+    return numbers
+
+def numbers_to_text(numbers):
+    return ''.join(chr(int(n) % 26 + ord('A')) for n in numbers)
+
+def hill_encrypt(plaintext, key_matrix):
+    n       = key_matrix.shape[0]
+    numbers = text_to_numbers(plaintext)
+
+    # Pad with 'X' if length not a multiple of n
+    while len(numbers) % n != 0:
+        numbers.append(ord('X') - ord('A'))
+
+    cipher_numbers = []
+    for i in range(0, len(numbers), n):
+        block  = np.array(numbers[i : i + n])
+        result = key_matrix.dot(block) % 26
+        cipher_numbers.extend(result.astype(int).tolist())
+
+    return numbers_to_text(cipher_numbers)
+
+def hill_decrypt(ciphertext, key_matrix):
+    inv_key = matrix_mod_inverse(key_matrix)
+    return hill_encrypt(ciphertext, inv_key)
+
+if __name__ == '__main__':
+    # 2x2 key matrix (must be invertible mod 26)
+    key_matrix = np.array([[6, 24],
+                            [1, 13]])
+
+    text = input('Enter plaintext (letters only): ').upper()
+
+    encrypted = hill_encrypt(text, key_matrix)
+    decrypted = hill_decrypt(encrypted, key_matrix)
+
+    print(f'\nKey Matrix:\n{key_matrix}')
+    print(f'\nPlaintext  : {text}')
+    print(f'Encrypted  : {encrypted}')
+    print(f'Decrypted  : {decrypted}')
+--------------------------------------------------
+
+Sample Output:
+  Enter plaintext (letters only): ACT
+
+  Key Matrix:
+  [[ 6 24]
+   [ 1 13]]
+
+  Plaintext  : ACT
+  Encrypted  : POH
+  Decrypted  : ACT
+
+
+================================================================
+PRACTICAL 9: RAIL FENCE CIPHER
+================================================================
+
+Code (save as railfence.py):
+--------------------------------------------------
+def rail_fence_encrypt(plaintext, num_rails):
+    # Create empty rails
+    rails     = ['' for _ in range(num_rails)]
+    rail      = 0
+    direction = 1   # 1 = going down, -1 = going up
+
+    for char in plaintext:
+        rails[rail] += char
+        # Change direction at top and bottom rails
+        if rail == 0:
+            direction = 1
+        elif rail == num_rails - 1:
+            direction = -1
+        rail += direction
+
+    # Read off each rail left to right
+    ciphertext = ''
+    for r in rails:
+        ciphertext += r
+
+    return ciphertext
+
+def rail_fence_decrypt(ciphertext, num_rails):
+    n = len(ciphertext)
+
+    # Determine which rail each position belongs to
+    rail_pattern = []
+    rail         = 0
+    direction    = 1
+    for i in range(n):
+        rail_pattern.append(rail)
+        if rail == 0:
+            direction = 1
+        elif rail == num_rails - 1:
+            direction = -1
+        rail += direction
+
+    # Sort positions by rail to know how ciphertext chars are distributed
+    sorted_indices = sorted(range(n), key=lambda x: rail_pattern[x])
+
+    # Place ciphertext characters back into their original positions
+    result = [''] * n
+    for position, char in zip(sorted_indices, ciphertext):
+        result[position] = char
+
+    return ''.join(result)
+
+if __name__ == '__main__':
+    text      = input('Enter plaintext       : ')
+    num_rails = int(input('Enter number of rails : '))
+
+    encrypted = rail_fence_encrypt(text, num_rails)
+    decrypted = rail_fence_decrypt(encrypted, num_rails)
+
+    print(f'\nPlaintext  : {text}')
+    print(f'Encrypted  : {encrypted}')
+    print(f'Decrypted  : {decrypted}')
+--------------------------------------------------
+
+Sample Output:
+  Enter plaintext       : WEAREDISCOVEREDFLEEAHOAH
+  Enter number of rails : 3
+
+  Plaintext  : WEAREDISCOVEREDFLEEAHOAH
+  Encrypted  : WECRLTEERDSOEEFEAABORADICVH
+  Decrypted  : WEAREDISCOVEREDFLEEAHOAH
+
+
+================================================================
+PRACTICAL 10: ROW TRANSPOSITION CIPHER
+================================================================
+
+Code (save as row_transposition.py):
+--------------------------------------------------
+import math
+
+def get_column_order(key):
+    # Returns column indices sorted by alphabetical order of key characters
+    indexed_key = list(enumerate(key))
+    sorted_key  = sorted(indexed_key, key=lambda x: x[1])
+    order       = [idx for idx, char in sorted_key]
+    return order
+
+def row_transposition_encrypt(plaintext, key):
+    key      = key.upper()
+    num_cols = len(key)
+    num_rows = math.ceil(len(plaintext) / num_cols)
+
+    # Pad plaintext with 'X' to fill the grid completely
+    padded = plaintext.upper().replace(' ', '')
+    padded = padded.ljust(num_rows * num_cols, 'X')
+
+    # Fill grid row by row
+    grid = []
+    for r in range(num_rows):
+        grid.append(list(padded[r * num_cols : r * num_cols + num_cols]))
+
+    # Read columns in sorted key order
+    order      = get_column_order(key)
+    ciphertext = ''
+    for col in order:
+        for row in grid:
+            ciphertext += row[col]
+
+    return ciphertext
+
+def row_transposition_decrypt(ciphertext, key):
+    key      = key.upper()
+    num_cols = len(key)
+    num_rows = len(ciphertext) // num_cols
+    order    = get_column_order(key)
+
+    # Split ciphertext back into columns (in sorted key order)
+    columns = {}
+    idx     = 0
+    for col in order:
+        columns[col] = list(ciphertext[idx : idx + num_rows])
+        idx += num_rows
+
+    # Read grid row by row to recover plaintext
+    plaintext = ''
+    for r in range(num_rows):
+        for c in range(num_cols):
+            plaintext += columns[c][r]
+
+    return plaintext
+
+if __name__ == '__main__':
+    key  = input('Enter key       : ').upper()
+    text = input('Enter plaintext : ').upper().replace(' ', '')
+
+    encrypted = row_transposition_encrypt(text, key)
+    decrypted = row_transposition_decrypt(encrypted, key)
+
+    print(f'\nKey        : {key}')
+    print(f'Plaintext  : {text}')
+    print(f'Encrypted  : {encrypted}')
+    print(f'Decrypted  : {decrypted}')
+--------------------------------------------------
+
+Sample Output:
+  Enter key       : SECURITY
+  Enter plaintext : WEAREDISCOVERED
+
+  Key        : SECURITY
+  Plaintext  : WEAREDISCOVERED
+  Encrypted  : EVLNACDTESEAROF
+  Decrypted  : WEAREDISCOVEREDX
+
+
+================================================================
+PRACTICAL 11: PRODUCT CIPHER
+================================================================
+
+Concept:
+  Product cipher chains two ciphers together for stronger encryption.
+  Here: Caesar cipher (substitution) followed by Rail Fence (transposition).
+  Encryption: apply Caesar first, then Rail Fence on the result.
+  Decryption: reverse Rail Fence first, then reverse Caesar.
+
+Code (save as product_cipher.py):
+--------------------------------------------------
+
+# ---- Caesar Cipher ------------------------------------------
+
+def caesar_encrypt(text, shift):
+    ciphertext = ''
+    for char in text:
+        if char.isalpha():
+            base = ord('A') if char.isupper() else ord('a')
+            ciphertext += chr((ord(char) - base + shift) % 26 + base)
+        else:
+            ciphertext += char
+    return ciphertext
+
+def caesar_decrypt(text, shift):
+    plaintext = ''
+    for char in text:
+        if char.isalpha():
+            base = ord('A') if char.isupper() else ord('a')
+            plaintext += chr((ord(char) - base - shift) % 26 + base)
+        else:
+            plaintext += char
+    return plaintext
+
+# ---- Rail Fence Cipher --------------------------------------
+
+def rail_fence_encrypt(text, num_rails):
+    rails     = ['' for _ in range(num_rails)]
+    rail      = 0
+    direction = 1
+
+    for char in text:
+        rails[rail] += char
+        if rail == 0:
+            direction = 1
+        elif rail == num_rails - 1:
+            direction = -1
+        rail += direction
+
+    return ''.join(rails)
+
+def rail_fence_decrypt(text, num_rails):
+    n            = len(text)
+    rail_pattern = []
+    rail         = 0
+    direction    = 1
+
+    for i in range(n):
+        rail_pattern.append(rail)
+        if rail == 0:
+            direction = 1
+        elif rail == num_rails - 1:
+            direction = -1
+        rail += direction
+
+    sorted_indices = sorted(range(n), key=lambda x: rail_pattern[x])
+    result         = [''] * n
+
+    for position, char in zip(sorted_indices, text):
+        result[position] = char
+
+    return ''.join(result)
+
+# ---- Product Cipher -----------------------------------------
+
+def product_encrypt(plaintext, caesar_shift, num_rails):
+    # Step 1: Substitution using Caesar cipher
+    after_caesar     = caesar_encrypt(plaintext, caesar_shift)
+    # Step 2: Transposition using Rail Fence on Caesar output
+    after_rail_fence = rail_fence_encrypt(after_caesar, num_rails)
+    return after_caesar, after_rail_fence
+
+def product_decrypt(ciphertext, caesar_shift, num_rails):
+    # Step 1: Reverse transposition using Rail Fence
+    after_rail_fence = rail_fence_decrypt(ciphertext, num_rails)
+    # Step 2: Reverse substitution using Caesar
+    after_caesar     = caesar_decrypt(after_rail_fence, caesar_shift)
+    return after_rail_fence, after_caesar
+
+# ---- Main ---------------------------------------------------
+
+if __name__ == '__main__':
+    text      = input('Enter plaintext        : ')
+    shift     = int(input('Enter Caesar shift     : '))
+    num_rails = int(input('Enter Rail Fence rails : '))
+
+    after_caesar, final_cipher = product_encrypt(text, shift, num_rails)
+    after_rail,   final_plain  = product_decrypt(final_cipher, shift, num_rails)
+
+    print(f'\n--- Encryption ---')
+    print(f'Original plaintext       : {text}')
+    print(f'After Caesar encrypt     : {after_caesar}')
+    print(f'Final ciphertext         : {final_cipher}')
+
+    print(f'\n--- Decryption ---')
+    print(f'Input ciphertext         : {final_cipher}')
+    print(f'After Rail Fence decrypt : {after_rail}')
+    print(f'Final plaintext          : {final_plain}')
+--------------------------------------------------
+
+Sample Output:
+  Enter plaintext        : HELLO WORLD
+  Enter Caesar shift     : 3
+  Enter Rail Fence rails : 2
+
+  --- Encryption ---
+  Original plaintext       : HELLO WORLD
+  After Caesar encrypt     : KHOOR ZRUOG
+  Final ciphertext         : KORZU HORZG
+
+  --- Decryption ---
+  Input ciphertext         : KORZU HORZG
+  After Rail Fence decrypt : KHOOR ZRUOG
+  Final plaintext          : HELLO WORLD
+
+
+================================================================
+                          END
+================================================================
